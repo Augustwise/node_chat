@@ -1,26 +1,57 @@
-import type { FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import './App.css';
+import { login, loginErrors } from './api';
 import ChatPage from './ChatPage';
 import RoomsPage from './RoomsPage';
 
 const usernameKey = 'chat.username';
+const duplicateUsernameMessage = 'That name is already in use. Try another.';
 
 function App() {
   const storedUsername = localStorage.getItem(usernameKey);
+  const username = storedUsername?.trim();
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const formData = new FormData(event.currentTarget);
     const nextUsername = String(formData.get('username') || '').trim();
 
     if (!nextUsername) {
+      setError('Enter a username to join the chat.');
+
       return;
     }
 
-    localStorage.setItem(usernameKey, nextUsername);
-    window.location.assign('/chat');
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      const data = await login(nextUsername);
+
+      localStorage.setItem(usernameKey, data.username);
+      window.location.assign('/chat');
+    } catch (loginError) {
+      if (
+        loginError instanceof Error &&
+        loginError.message === loginErrors.duplicateUsername
+      ) {
+        setError(duplicateUsernameMessage);
+
+        return;
+      }
+
+      setError('Could not join the chat. Try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (['/chat', '/rooms'].includes(window.location.pathname) && !username) {
+    window.history.replaceState(null, '', '/login');
+  }
 
   if (window.location.pathname === '/rooms') {
     return <RoomsPage />;
@@ -44,6 +75,7 @@ function App() {
           <form className="login-form" onSubmit={handleLogin}>
             <label htmlFor="username">Username</label>
             <input
+              className={error ? 'has-error' : ''}
               id="username"
               name="username"
               type="text"
@@ -51,16 +83,23 @@ function App() {
               autoComplete="username"
               defaultValue={storedUsername || ''}
             />
-            <button type="submit">
+            {error ? (
+              <p className="login-error" id="username-error">
+                {error}
+              </p>
+            ) : null}
+            <button disabled={isSubmitting} type="submit">
               <span className="desktop-label">
-                Join chat
+                {isSubmitting ? 'Joining...' : 'Join chat'}
                 <img
                   className="button-arrow"
                   src="/src/assets/arrow.svg"
                   alt=""
                 />
               </span>
-              <span className="mobile-label">Continue</span>
+              <span className="mobile-label">
+                {isSubmitting ? 'Joining...' : 'Continue'}
+              </span>
             </button>
           </form>
         </div>
