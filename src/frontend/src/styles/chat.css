@@ -1,18 +1,18 @@
 .chat-page {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
-  min-height: 100svh;
-  color: #0f0f0f;
-  background: #fdfdfb;
+  min-height: var(--app-min-height);
+  color: var(--color-text-strong);
+  background: var(--color-page-bg);
 }
 
 .rooms-sidebar {
   display: flex;
-  min-height: 100svh;
+  min-height: var(--app-min-height);
   flex-direction: column;
   justify-content: space-between;
   padding: 22px 18px 24px;
-  border-right: 1px solid #b9b9b9;
+  border-right: 1px solid var(--color-border);
 }
 
 .chat-brand {
@@ -29,29 +29,52 @@
   justify-content: space-between;
   margin-bottom: 16px;
   padding: 0 4px;
-  color: #707070;
-  font-size: 14px;
+  color: var(--color-muted-medium);
+  font-size: var(--font-size-sm);
   line-height: 1;
   text-transform: uppercase;
 }
 
 .rooms-heading button {
-  display: grid;
   width: 24px;
   height: 24px;
-  place-items: center;
-  padding: 0;
-  color: #707070;
-  background: transparent;
-  border: 0;
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
 }
 
 .room-list {
   display: grid;
   gap: 14px;
+}
+
+.room-create-form {
+  display: grid;
+  gap: 8px;
+  margin: -4px 0 16px;
+}
+
+.room-create-form label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.room-create-form input {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  outline: none;
+}
+
+.room-create-form .app-button {
+  width: 100%;
+  min-width: 0;
 }
 
 .room-link {
@@ -61,10 +84,10 @@
   justify-content: space-between;
   gap: 12px;
   padding: 0 13px;
-  color: #111;
+  color: var(--color-text-dark);
   border: 1px solid transparent;
   border-radius: 8px;
-  font-size: 16px;
+  font-size: var(--font-size-md);
   line-height: 1;
   text-decoration: none;
 }
@@ -82,7 +105,7 @@
 }
 
 .room-name span {
-  color: #707070;
+  color: var(--color-muted-medium);
 }
 
 .room-count {
@@ -93,9 +116,9 @@
   padding: 0 7px;
   flex: 0 0 auto;
   color: #6e6e6e;
-  border: 1px solid #d0d0d0;
-  border-radius: 999px;
-  font-size: 13px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
 }
 
 .current-user {
@@ -112,9 +135,9 @@
   height: 36px;
   place-items: center;
   color: #747474;
-  border: 1px solid #b9b9b9;
+  border: 1px solid var(--color-border);
   border-radius: 50%;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
 }
 
 .current-user strong,
@@ -124,18 +147,18 @@
 }
 
 .current-user strong {
-  font-size: 16px;
+  font-size: var(--font-size-md);
   font-weight: 600;
 }
 
 .current-user span {
-  color: #707070;
-  font-size: 13px;
+  color: var(--color-muted-medium);
+  font-size: var(--font-size-xs);
 }
 
 .chat-shell {
   display: grid;
-  min-height: 100svh;
+  min-height: var(--app-min-height);
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
@@ -146,7 +169,7 @@
   justify-content: space-between;
   gap: 24px;
   padding: 14px 22px 14px 24px;
-  border-bottom: 1px solid #b9b9b9;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .chat-header h2 {
@@ -159,24 +182,9 @@
 
 .chat-header p {
   margin: 4px 0 0;
-  color: #6d6d6d;
+  color: var(--color-muted-dark);
   font-size: 15px;
   line-height: 1;
-}
-
-.rooms-link-button {
-  display: grid;
-  min-width: 112px;
-  height: 36px;
-  place-items: center;
-  padding: 0 22px;
-  color: #6d6d6d;
-  background: transparent;
-  border: 1px solid #adadad;
-  border-radius: 2px;
-  font-size: 16px;
-  line-height: 1;
-  text-decoration: none;
 }
 
 .message-scroll {
@@ -194,8 +202,8 @@
   margin: 0 auto 22px;
   color: #6c6c6c;
   border: 1px solid #d5d5d5;
-  border-radius: 999px;
-  font-size: 13px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
   line-height: 1;
 }
 
@@ -205,6 +213,13 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.chat-status {
+  margin: 0 0 18px;
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
 }
 
 .message-row {
@@ -225,13 +240,13 @@
   gap: 8px;
   margin-bottom: 5px;
   color: #666;
-  font-size: 13px;
+  font-size: var(--font-size-xs);
   line-height: 1;
 }
 
 .message-meta strong {
-  color: #0f0f0f;
-  font-size: 13px;
+  color: var(--color-text-strong);
+  font-size: var(--font-size-xs);
   font-weight: 700;
 }
 
@@ -242,21 +257,21 @@
   background: rgba(255, 255, 255, 0.34);
   border: 1px solid #b6b6b6;
   border-radius: 12px;
-  font-size: 16px;
+  font-size: var(--font-size-md);
   line-height: 1.25;
 }
 
 .message-time {
   margin-top: 6px;
   color: #575757;
-  font-size: 13px;
+  font-size: var(--font-size-xs);
   line-height: 1;
 }
 
 .composer {
   display: block;
   padding: 14px 22px 14px 24px;
-  border-top: 1px solid #b9b9b9;
+  border-top: 1px solid var(--color-border);
 }
 
 .composer label {
@@ -272,21 +287,32 @@
   width: 100%;
   height: 52px;
   padding: 0 17px;
-  color: #202020;
+  color: var(--color-text);
   background: rgba(255, 255, 255, 0.45);
-  border: 1px solid #adadad;
-  border-radius: 2px;
-  font-size: 16px;
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
   outline: none;
 }
 
 .composer input::placeholder {
-  color: #777;
+  color: var(--color-muted);
   opacity: 1;
 }
 
 .composer input:focus {
-  box-shadow: 0 0 0 1px #808080;
+  box-shadow: 0 0 0 1px var(--color-focus);
+}
+
+.composer input:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.rooms-link-button:hover {
+  color: var(--color-surface);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 @media (max-width: 760px) {
@@ -303,7 +329,7 @@
   }
 
   .chat-shell {
-    min-height: 100svh;
+    min-height: var(--app-min-height);
   }
 
   .chat-header {
@@ -323,10 +349,14 @@
     min-width: auto;
     height: auto;
     padding: 0;
-    color: #777;
+    color: var(--color-muted);
     border: 0;
     font-size: 18px;
     line-height: 1;
+  }
+
+  .rooms-link-button:hover {
+    color: #333;
   }
 
   .rooms-link-button::before {
@@ -348,7 +378,7 @@
 
   .message-bubble {
     padding: 10px 14px;
-    font-size: 14px;
+    font-size: var(--font-size-sm);
   }
 
   .composer {
@@ -357,7 +387,7 @@
 
   .composer input {
     height: 38px;
-    border-radius: 999px;
-    font-size: 13px;
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-xs);
   }
 }
