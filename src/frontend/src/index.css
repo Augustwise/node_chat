@@ -1,0 +1,32 @@
+:root {
+  font-family: "Google Sans", sans-serif;
+  color: #202020;
+  background: #fdfdfb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100svh;
+  margin: 0;
+  background: #fdfdfb;
+}
+
+button,
+input {
+  font: inherit;
+}
