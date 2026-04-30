@@ -15,6 +15,7 @@ import {
 import type { ChatMessage, Room } from './types';
 
 const usernameKey = 'chat.username';
+const duplicateRoomMessage = 'A room with that name already exists.';
 const messageRefreshIntervalMs = 3000;
 
 type DisplayMessage = ChatMessage & {
@@ -205,8 +206,12 @@ function ChatPage() {
       form.reset();
       window.location.hash = encodeURIComponent(room.name);
       setActiveRoomName(room.name);
-    } catch {
-      setError('Could not create that room.');
+    } catch (error) {
+      setError(
+        error instanceof Error && error.message === duplicateRoomMessage
+          ? error.message
+          : 'Could not create that room.'
+      );
     }
   };
 
@@ -321,7 +326,7 @@ function ChatPage() {
         </header>
 
         <div className="message-scroll">
-          {error ? <p className="chat-status">{error}</p> : null}
+          {error ? <p className="chat-status error">{error}</p> : null}
           {activeRoom ? <time className="day-pill">Today</time> : null}
 
           {activeRoom && displayedMessages.length ? (

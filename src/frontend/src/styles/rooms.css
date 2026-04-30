@@ -101,6 +101,10 @@
   line-height: 1.4;
 }
 
+.rooms-status.error {
+  color: var(--color-danger);
+}
+
 .room-create-panel {
   display: grid;
   gap: 10px;

@@ -57,6 +57,24 @@ async function findRoomByName(name) {
   });
 }
 
+function getRequestUsername(req) {
+  return String(req.body.username || '').trim();
+}
+
+function isRoomCreator(room, username) {
+  return Boolean(
+    username &&
+      room.creatorUsernameKey &&
+      room.creatorUsernameKey === getUsernameKey(username),
+  );
+}
+
+function sendRoomCreatorRequired(res) {
+  return res.status(403).json({
+    message: 'Only the room creator can change that room.',
+  });
+}
+
 async function serializeRoom(room) {
   const [lastMessage, members] = await Promise.all([
     Message.findOne({
@@ -80,6 +98,8 @@ async function serializeRoom(room) {
 
   return {
     name: room.name,
+    creatorUsername: room.creatorUsername || '',
+    creatorUsernameKey: room.creatorUsernameKey || '',
     members,
     preview: lastMessage
       ? `${lastMessage.author.username}: ${lastMessage.body}`
@@ -145,7 +165,7 @@ app.post(
   '/api/rooms',
   asyncRoute(async (req, res) => {
     const name = normalizeRoomName(req.body.name);
-    const username = String(req.body.username || '').trim();
+    const username = getRequestUsername(req);
 
     if (!name) {
       return res.status(400).json({
@@ -153,12 +173,21 @@ app.post(
       });
     }
 
+    if (!username) {
+      return res.status(400).json({
+        message: 'Room creator is required.',
+      });
+    }
+
+    const user = await findOrCreateUser(username);
     let room;
 
     try {
       room = await Room.create({
         name,
         roomKey: getRoomKey(name),
+        creatorUsername: user.username,
+        creatorUsernameKey: user.usernameKey,
       });
     } catch (error) {
       if (error instanceof UniqueConstraintError) {
@@ -170,13 +199,52 @@ app.post(
       throw error;
     }
 
-    if (username) {
-      const user = await findOrCreateUser(username);
-
-      await room.addMember(user);
-    }
+    await room.addMember(user);
 
     return res.status(201).json(await serializeRoom(room));
+  }),
+);
+
+app.patch(
+  '/api/rooms/:roomName',
+  asyncRoute(async (req, res) => {
+    const name = normalizeRoomName(req.params.roomName);
+    const nextName = normalizeRoomName(req.body.name);
+    const username = getRequestUsername(req);
+    const room = await findRoomByName(name);
+
+    if (!room) {
+      return res.status(404).json({
+        message: 'Room not found.',
+      });
+    }
+
+    if (!isRoomCreator(room, username)) {
+      return sendRoomCreatorRequired(res);
+    }
+
+    if (!nextName) {
+      return res.status(400).json({
+        message: 'Room name is required.',
+      });
+    }
+
+    room.name = nextName;
+    room.roomKey = getRoomKey(nextName);
+
+    try {
+      await room.save();
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        return res.status(409).json({
+          message: 'A room with that name already exists.',
+        });
+      }
+
+      throw error;
+    }
+
+    return res.json(await serializeRoom(room));
   }),
 );
 
@@ -184,12 +252,17 @@ app.delete(
   '/api/rooms/:roomName',
   asyncRoute(async (req, res) => {
     const name = normalizeRoomName(req.params.roomName);
+    const username = getRequestUsername(req);
     const room = await findRoomByName(name);
 
     if (!room) {
       return res.status(404).json({
         message: 'Room not found.',
       });
+    }
+
+    if (!isRoomCreator(room, username)) {
+      return sendRoomCreatorRequired(res);
     }
 
     await room.destroy();

@@ -222,6 +222,10 @@
   line-height: 1.4;
 }
 
+.chat-status.error {
+  color: var(--color-danger);
+}
+
 @keyframes message-slide-in {
   from {
     opacity: 0;

@@ -4,7 +4,7 @@
   "description": "Chat using Node.js",
   "main": "src/index.js",
   "scripts": {
-    "backend": "npm --prefix backend start",
+    "backend": "npm --prefix src/backend start",
     "init": "mate-scripts init",
     "start": "npm run backend",
     "lint": "npm run format && mate-scripts lint && npm --prefix src/frontend run lint",

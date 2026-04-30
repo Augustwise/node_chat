@@ -1,116 +1,33 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type FormEvent,
-} from 'react';
 import classNames from 'classnames';
-import { createRoom, deleteRoom, fetchRooms } from './api';
 import DeleteRoomDialog from './DeleteRoomDialog';
-import type { Room } from './types';
-
-const usernameKey = 'chat.username';
+import RenameRoomDialog from './RenameRoomDialog';
+import useRoomsPage from './useRoomsPage';
 
 function RoomsPage() {
-  const storedUsername = localStorage.getItem(usernameKey);
-  const username = storedUsername?.trim() || 'guest';
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [search, setSearch] = useState('');
-  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Room | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [error, setError] = useState('');
-
-  const visibleRooms = useMemo(
-    () =>
-      rooms.filter((room) =>
-        room.name.toLowerCase().includes(search.trim().toLowerCase())
-      ),
-    [rooms, search]
-  );
-
-  useEffect(() => {
-    let ignore = false;
-
-    fetchRooms()
-      .then((nextRooms) => {
-        if (!ignore) {
-          setRooms(nextRooms);
-        }
-      })
-      .catch(() => {
-        if (!ignore) {
-          setError('Could not load rooms.');
-        }
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
-
-  const handleCreateRoom = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    const name = String(formData.get('roomName') || '').trim();
-
-    if (!name) {
-      setError('Enter a room name.');
-
-      return;
-    }
-
-    try {
-      const room = await createRoom(name, username);
-
-      setRooms((currentRooms) => [...currentRooms, room]);
-      setIsCreatingRoom(false);
-      setError('');
-      form.reset();
-    } catch {
-      setError('Could not create that room.');
-    }
-  };
-
-  const openDeleteModal = (room: Room) => {
-    setDeleteTarget(room);
-    setDeleteConfirmation('');
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteDialogOpenChange = useCallback(
-    (open: boolean) => {
-      setDeleteDialogOpen(open);
-      if (!open) {
-        setDeleteTarget(null);
-        setDeleteConfirmation('');
-      }
-    },
-    []
-  );
-
-  const handleDeleteRoom = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!deleteTarget || deleteConfirmation !== deleteTarget.name) {
-      return;
-    }
-
-    try {
-      await deleteRoom(deleteTarget.name);
-      setRooms((currentRooms) =>
-        currentRooms.filter((room) => room.name !== deleteTarget.name)
-      );
-      setDeleteDialogOpen(false);
-      setError('');
-    } catch {
-      setError('Could not delete that room.');
-    }
-  };
+  const {
+    canManageRoom,
+    deleteConfirmation,
+    deleteDialogOpen,
+    deleteTarget,
+    error,
+    handleCreateRoom,
+    handleDeleteDialogOpenChange,
+    handleDeleteRoom,
+    handleRenameDialogOpenChange,
+    handleRenameRoom,
+    isCreatingRoom,
+    openDeleteModal,
+    openRenameModal,
+    renameDialogOpen,
+    renameName,
+    renameTarget,
+    search,
+    setDeleteConfirmation,
+    setIsCreatingRoom,
+    setRenameName,
+    setSearch,
+    visibleRooms,
+  } = useRoomsPage();
 
   return (
     <main className="rooms-page">
@@ -148,7 +65,7 @@ function RoomsPage() {
           </button>
         </div>
 
-        {error ? <p className="rooms-status">{error}</p> : null}
+        {error ? <p className="rooms-status error">{error}</p> : null}
 
         {isCreatingRoom ? (
           <form className="room-create-panel" onSubmit={handleCreateRoom}>
@@ -173,50 +90,81 @@ function RoomsPage() {
         ) : null}
 
         <ol className="all-room-list">
-          {visibleRooms.map((room) => (
-            <li className="all-room-row" key={room.name}>
-              <a
-                className="room-summary"
-                href={`/chat#${encodeURIComponent(room.name)}`}
-              >
-                <span className="room-summary-main">
-                  <span>#</span>
-                  <strong>{room.name}</strong>
-                  <small>{room.members} members</small>
-                </span>
-                <span className="room-summary-preview">
-                  <span>{room.preview || 'No messages yet'}</span>
-                  <time>{room.time}</time>
-                  {room.unread ? <strong>{room.unread}</strong> : null}
-                </span>
-              </a>
+          {visibleRooms.map((room) => {
+            const canManage = canManageRoom(room);
 
-              <div className="room-actions">
-                <button className="app-button" type="button">
-                  rename
-                </button>
-                <button
-                  className={classNames('app-button', 'danger')}
-                  type="button"
-                  onClick={() => openDeleteModal(room)}
-                >
-                  delete
-                </button>
+            return (
+              <li className="all-room-row" key={room.name}>
                 <a
-                  className="app-button"
+                  className="room-summary"
                   href={`/chat#${encodeURIComponent(room.name)}`}
                 >
-                  {room.joined ? 'open' : 'join'}
+                  <span className="room-summary-main">
+                    <span>#</span>
+                    <strong>{room.name}</strong>
+                    <small>{room.members} members</small>
+                  </span>
+                  <span className="room-summary-preview">
+                    <span>{room.preview || 'No messages yet'}</span>
+                    <time>{room.time}</time>
+                    {room.unread ? <strong>{room.unread}</strong> : null}
+                  </span>
                 </a>
-              </div>
-            </li>
-          ))}
+
+                <div className="room-actions">
+                  <button
+                    className="app-button"
+                    disabled={!canManage}
+                    title={
+                      canManage
+                        ? 'Rename room'
+                        : 'Only the room creator can rename it'
+                    }
+                    type="button"
+                    onClick={() => openRenameModal(room)}
+                  >
+                    rename
+                  </button>
+                  <button
+                    className={classNames('app-button', 'danger')}
+                    disabled={!canManage}
+                    title={
+                      canManage
+                        ? 'Delete room'
+                        : 'Only the room creator can delete it'
+                    }
+                    type="button"
+                    onClick={() => openDeleteModal(room)}
+                  >
+                    delete
+                  </button>
+                  <a
+                    className="app-button"
+                    href={`/chat#${encodeURIComponent(room.name)}`}
+                  >
+                    {room.joined ? 'open' : 'join'}
+                  </a>
+                </div>
+              </li>
+            );
+          })}
         </ol>
 
         {!visibleRooms.length ? (
           <p className="rooms-status">No rooms found.</p>
         ) : null}
       </section>
+
+      {renameTarget ? (
+        <RenameRoomDialog
+          name={renameName}
+          room={renameTarget}
+          open={renameDialogOpen}
+          onOpenChange={handleRenameDialogOpenChange}
+          onNameChange={setRenameName}
+          onSubmit={handleRenameRoom}
+        />
+      ) : null}
 
       {deleteTarget ? (
         <DeleteRoomDialog

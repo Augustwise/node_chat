@@ -9,6 +9,7 @@ const envPath =
   [
     path.resolve(__dirname, '.env'),
     path.resolve(__dirname, '..', 'server', '.env'),
+    path.resolve(__dirname, '..', '..', 'server', '.env'),
   ].find((filePath) => fs.existsSync(filePath)) ||
   path.resolve(__dirname, '.env');
 
@@ -68,6 +69,14 @@ const Room = sequelize.define(
       type: DataTypes.STRING(120),
       allowNull: false,
       unique: true,
+    },
+    creatorUsername: {
+      type: DataTypes.STRING(80),
+      allowNull: true,
+    },
+    creatorUsernameKey: {
+      type: DataTypes.STRING(80),
+      allowNull: true,
     },
   },
   {
@@ -146,11 +155,38 @@ Message.belongsTo(User, {
 
 async function connectDatabase() {
   if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL is required in backend/.env or server/.env');
+    throw new Error(
+      [
+        'DATABASE_URL is required in src/backend/.env',
+        'src/server/.env',
+        'or server/.env',
+      ].join(', '),
+    );
   }
 
   await sequelize.authenticate();
   await sequelize.sync();
+
+  // interact with the database schema
+  const queryInterface = sequelize.getQueryInterface();
+
+  const roomColumns = await queryInterface.describeTable('rooms');
+
+  // Add creator_username column if it doesn't exist
+  if (!roomColumns.creator_username) {
+    await queryInterface.addColumn('rooms', 'creator_username', {
+      type: DataTypes.STRING(80),
+      allowNull: true,
+    });
+  }
+
+  // Add creator_username_key column if it doesn't exist
+  if (!roomColumns.creator_username_key) {
+    await queryInterface.addColumn('rooms', 'creator_username_key', {
+      type: DataTypes.STRING(80),
+      allowNull: true,
+    });
+  }
 }
 
 module.exports = {

@@ -11,7 +11,7 @@ Implement a chat application (both client and server)
 
 ```bash
 npm install
-npm --prefix backend install
+npm --prefix src/backend install
 npm --prefix src/frontend install
 ```
 

@@ -2,6 +2,10 @@ import type { LoginResponse, Room, ChatMessage } from './types';
 
 export type { Room, ChatMessage };
 
+type ErrorResponse = {
+  message?: string;
+};
+
 export const loginErrors = {
   duplicateUsername: 'duplicate-username',
   failed: 'login-failed',
@@ -18,6 +22,16 @@ async function request<T>(input: RequestInfo | URL, init?: RequestInit) {
   }
 
   return response as Response & { json(): Promise<T> };
+}
+
+async function getErrorMessage(response: Response) {
+  try {
+    const body = (await response.clone().json()) as ErrorResponse;
+
+    return typeof body.message === 'string' ? body.message : '';
+  } catch {
+    return '';
+  }
 }
 
 export async function login(username: string): Promise<LoginResponse> {
@@ -62,6 +76,13 @@ export async function createRoom(
     body: JSON.stringify({ name, username }),
   });
 
+  if (response.status === 409) {
+    throw new Error(
+      (await getErrorMessage(response)) ||
+        'A room with that name already exists.',
+    );
+  }
+
   if (!response.ok) {
     throw new Error('room-create-failed');
   }
@@ -69,11 +90,41 @@ export async function createRoom(
   return response.json();
 }
 
-export async function deleteRoom(name: string): Promise<void> {
+export async function renameRoom(
+  name: string,
+  nextName: string,
+  username: string,
+): Promise<Room> {
+  const response = await request<Room>(
+    `/api/rooms/${encodeURIComponent(name)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: nextName, username }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error('room-rename-failed');
+  }
+
+  return response.json();
+}
+
+export async function deleteRoom(
+  name: string,
+  username: string,
+): Promise<void> {
   const response = await request<void>(
     `/api/rooms/${encodeURIComponent(name)}`,
     {
       method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username }),
     },
   );
 

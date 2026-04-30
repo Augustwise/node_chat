@@ -4,6 +4,8 @@ export type LoginResponse = {
 
 export type Room = {
   name: string;
+  creatorUsername: string;
+  creatorUsernameKey: string;
   members: number;
   preview: string;
   time: string;
