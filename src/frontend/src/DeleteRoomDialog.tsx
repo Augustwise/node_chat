@@ -1,63 +1,62 @@
 import type { FormEvent } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import classNames from 'classnames';
 import type { Room } from './types';
 
 type DeleteRoomDialogProps = {
   confirmation: string;
-  isClosing?: boolean;
-  onCancel: () => void;
   onConfirmationChange: (confirmation: string) => void;
+  onOpenChange: (open: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  open: boolean;
   room: Room;
 };
 
 function DeleteRoomDialog({
   confirmation,
-  isClosing,
-  onCancel,
   onConfirmationChange,
+  onOpenChange,
   onSubmit,
+  open,
   room,
 }: DeleteRoomDialogProps) {
   return (
-    <div
-      // isClosing lets the CSS play the exit animation before unmounting.
-      className={classNames('modal-backdrop', {
-        'modal-closing': isClosing,
-      })}
-      role="presentation"
-    >
-      <form
-        className={classNames('delete-room-dialog', {
-          'dialog-closing': isClosing,
-        })}
-        onSubmit={onSubmit}
-      >
-        <h2 id="delete-room-title">delete #{room.name} ?</h2>
-        <label htmlFor="delete-room-confirm">
-          type the room name to confirm
-        </label>
-        <input
-          autoFocus
-          id="delete-room-confirm"
-          value={confirmation}
-          onChange={(event) => onConfirmationChange(event.target.value)}
-          placeholder={room.name}
-        />
-        <div>
-          <button className="app-button" type="button" onClick={onCancel}>
-            cancel
-          </button>
-          <button
-            className={classNames('app-button', 'danger', 'solid')}
-            disabled={confirmation !== room.name}
-            type="submit"
-          >
-            delete
-          </button>
-        </div>
-      </form>
-    </div>
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="modal-backdrop">
+          <Dialog.Content className="delete-room-dialog" asChild>
+            <form onSubmit={onSubmit}>
+              <Dialog.Title className="delete-room-title">
+                delete #{room.name} ?
+              </Dialog.Title>
+              <label htmlFor="delete-room-confirm">
+                type the room name to confirm
+              </label>
+              <input
+                id="delete-room-confirm"
+                value={confirmation}
+                onChange={(event) => onConfirmationChange(event.target.value)}
+                placeholder={room.name}
+              />
+              <div>
+                <Dialog.Close asChild>
+                  <button className="app-button" type="button">
+                    cancel
+                  </button>
+                </Dialog.Close>
+                <button
+                  className={classNames('app-button', 'danger', 'solid')}
+                  disabled={confirmation !== room.name}
+                  type="submit"
+                >
+                  delete
+                </button>
+              </div>
+            </form>
+          </Dialog.Content>
+        </Dialog.Overlay>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 

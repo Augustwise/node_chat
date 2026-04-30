@@ -8,7 +8,6 @@ import {
 import classNames from 'classnames';
 import { createRoom, deleteRoom, fetchRooms } from './api';
 import DeleteRoomDialog from './DeleteRoomDialog';
-import useAnimatedModal from './hooks/useAnimatedModal';
 import type { Room } from './types';
 
 const usernameKey = 'chat.username';
@@ -21,12 +20,8 @@ function RoomsPage() {
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Room | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [error, setError] = useState('');
-  const resetDeleteModal = useCallback(() => {
-    setDeleteTarget(null);
-    setDeleteConfirmation('');
-  }, []);
-  const deleteModal = useAnimatedModal({ onAfterClose: resetDeleteModal });
 
   const visibleRooms = useMemo(
     () =>
@@ -84,8 +79,19 @@ function RoomsPage() {
   const openDeleteModal = (room: Room) => {
     setDeleteTarget(room);
     setDeleteConfirmation('');
-    deleteModal.open();
+    setDeleteDialogOpen(true);
   };
+
+  const handleDeleteDialogOpenChange = useCallback(
+    (open: boolean) => {
+      setDeleteDialogOpen(open);
+      if (!open) {
+        setDeleteTarget(null);
+        setDeleteConfirmation('');
+      }
+    },
+    []
+  );
 
   const handleDeleteRoom = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -99,7 +105,7 @@ function RoomsPage() {
       setRooms((currentRooms) =>
         currentRooms.filter((room) => room.name !== deleteTarget.name)
       );
-      deleteModal.close();
+      setDeleteDialogOpen(false);
       setError('');
     } catch {
       setError('Could not delete that room.');
@@ -212,12 +218,12 @@ function RoomsPage() {
         ) : null}
       </section>
 
-      {deleteModal.isOpen && deleteTarget ? (
+      {deleteTarget ? (
         <DeleteRoomDialog
           confirmation={deleteConfirmation}
           room={deleteTarget}
-          isClosing={deleteModal.isClosing}
-          onCancel={deleteModal.close}
+          open={deleteDialogOpen}
+          onOpenChange={handleDeleteDialogOpenChange}
           onConfirmationChange={setDeleteConfirmation}
           onSubmit={handleDeleteRoom}
         />
