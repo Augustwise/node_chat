@@ -1,12 +1,11 @@
 'use strict';
 
 const express = require('express');
+const { UniqueConstraintError } = require('sequelize');
+const { connectDatabase, User, Room, Message } = require('./database');
 
 const app = express();
 const port = process.env.PORT || 3001;
-const usernames = new Map();
-const rooms = new Map();
-let nextMessageId = 1;
 
 app.use(express.json());
 
@@ -21,148 +20,290 @@ function getRoomKey(name) {
   return name.toLowerCase();
 }
 
+function getUsernameKey(username) {
+  return username.toLowerCase();
+}
+
 function formatMessageTime(date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(
     date.getMinutes(),
   ).padStart(2, '0')}`;
 }
 
-function serializeRoom(room) {
-  const lastMessage = room.messages[room.messages.length - 1];
+function serializeMessage(message) {
+  return {
+    id: message.id,
+    author: message.author.username,
+    time: formatMessageTime(message.createdAt),
+    body: message.body,
+  };
+}
+
+async function findOrCreateUser(username) {
+  const usernameKey = getUsernameKey(username);
+  const [user] = await User.findOrCreate({
+    where: { usernameKey },
+    defaults: { username, usernameKey },
+  });
+
+  return user;
+}
+
+async function findRoomByName(name) {
+  return Room.findOne({
+    where: {
+      roomKey: getRoomKey(name),
+    },
+  });
+}
+
+async function serializeRoom(room) {
+  const [lastMessage, members] = await Promise.all([
+    Message.findOne({
+      where: {
+        roomId: room.id,
+      },
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['username'],
+        },
+      ],
+      order: [
+        ['createdAt', 'DESC'],
+        ['id', 'DESC'],
+      ],
+    }),
+    room.countMembers(),
+  ]);
 
   return {
     name: room.name,
-    members: room.members.size,
-    preview: lastMessage ? `${lastMessage.author}: ${lastMessage.body}` : '',
-    time: lastMessage ? lastMessage.time : '',
+    members,
+    preview: lastMessage
+      ? `${lastMessage.author.username}: ${lastMessage.body}`
+      : '',
+    time: lastMessage ? formatMessageTime(lastMessage.createdAt) : '',
     unread: 0,
     joined: true,
   };
 }
 
-app.post('/api/login', (req, res) => {
-  const username = String(req.body.username || '').trim();
-
-  if (!username) {
-    return res.status(400).json({
-      message: 'Username is required.',
-    });
-  }
-
-  const usernameKey = username.toLowerCase();
-
-  if (usernames.has(usernameKey)) {
-    return res.status(409).json({
-      message: 'That name is already in use. Try another.',
-    });
-  }
-
-  usernames.set(usernameKey, username);
-
-  return res.status(201).json({ username });
-});
-
-app.get('/api/rooms', (req, res) => {
-  return res.json([...rooms.values()].map(serializeRoom));
-});
-
-app.post('/api/rooms', (req, res) => {
-  const name = normalizeRoomName(req.body.name);
-  const username = String(req.body.username || '').trim();
-
-  if (!name) {
-    return res.status(400).json({
-      message: 'Room name is required.',
-    });
-  }
-
-  const roomKey = getRoomKey(name);
-
-  if (rooms.has(roomKey)) {
-    return res.status(409).json({
-      message: 'A room with that name already exists.',
-    });
-  }
-
-  const room = {
-    name,
-    members: new Set(username ? [username] : []),
-    messages: [],
+function asyncRoute(handler) {
+  return (req, res, next) => {
+    Promise.resolve(handler(req, res, next)).catch(next);
   };
+}
 
-  rooms.set(roomKey, room);
+app.post(
+  '/api/login',
+  asyncRoute(async (req, res) => {
+    const username = String(req.body.username || '').trim();
 
-  return res.status(201).json(serializeRoom(room));
-});
+    if (!username) {
+      return res.status(400).json({
+        message: 'Username is required.',
+      });
+    }
 
-app.delete('/api/rooms/:roomName', (req, res) => {
-  const name = normalizeRoomName(req.params.roomName);
-  const roomKey = getRoomKey(name);
+    try {
+      await User.create({
+        username,
+        usernameKey: getUsernameKey(username),
+      });
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        return res.status(409).json({
+          message: 'That name is already in use. Try another.',
+        });
+      }
 
-  if (!rooms.has(roomKey)) {
-    return res.status(404).json({
-      message: 'Room not found.',
+      throw error;
+    }
+
+    return res.status(201).json({ username });
+  }),
+);
+
+app.get(
+  '/api/rooms',
+  asyncRoute(async (req, res) => {
+    const rooms = await Room.findAll({
+      order: [
+        ['createdAt', 'ASC'],
+        ['id', 'ASC'],
+      ],
     });
+    const serializedRooms = await Promise.all(rooms.map(serializeRoom));
+
+    return res.json(serializedRooms);
+  }),
+);
+
+app.post(
+  '/api/rooms',
+  asyncRoute(async (req, res) => {
+    const name = normalizeRoomName(req.body.name);
+    const username = String(req.body.username || '').trim();
+
+    if (!name) {
+      return res.status(400).json({
+        message: 'Room name is required.',
+      });
+    }
+
+    let room;
+
+    try {
+      room = await Room.create({
+        name,
+        roomKey: getRoomKey(name),
+      });
+    } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        return res.status(409).json({
+          message: 'A room with that name already exists.',
+        });
+      }
+
+      throw error;
+    }
+
+    if (username) {
+      const user = await findOrCreateUser(username);
+
+      await room.addMember(user);
+    }
+
+    return res.status(201).json(await serializeRoom(room));
+  }),
+);
+
+app.delete(
+  '/api/rooms/:roomName',
+  asyncRoute(async (req, res) => {
+    const name = normalizeRoomName(req.params.roomName);
+    const room = await findRoomByName(name);
+
+    if (!room) {
+      return res.status(404).json({
+        message: 'Room not found.',
+      });
+    }
+
+    await room.destroy();
+
+    return res.status(204).send();
+  }),
+);
+
+app.get(
+  '/api/rooms/:roomName/messages',
+  asyncRoute(async (req, res) => {
+    const name = normalizeRoomName(req.params.roomName);
+    const room = await findRoomByName(name);
+
+    if (!room) {
+      return res.status(404).json({
+        message: 'Room not found.',
+      });
+    }
+
+    const messages = await Message.findAll({
+      where: {
+        roomId: room.id,
+      },
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['username'],
+        },
+      ],
+      order: [
+        ['createdAt', 'ASC'],
+        ['id', 'ASC'],
+      ],
+    });
+
+    return res.json(messages.map(serializeMessage));
+  }),
+);
+
+app.post(
+  '/api/rooms/:roomName/messages',
+  asyncRoute(async (req, res) => {
+    const name = normalizeRoomName(req.params.roomName);
+    const room = await findRoomByName(name);
+    const author = String(req.body.author || '').trim();
+    const body = String(req.body.body || '').trim();
+
+    if (!room) {
+      return res.status(404).json({
+        message: 'Room not found.',
+      });
+    }
+
+    if (!author) {
+      return res.status(400).json({
+        message: 'Message author is required.',
+      });
+    }
+
+    if (!body) {
+      return res.status(400).json({
+        message: 'Message text is required.',
+      });
+    }
+
+    const user = await findOrCreateUser(author);
+
+    await room.addMember(user);
+
+    const message = await Message.create({
+      roomId: room.id,
+      userId: user.id,
+      body,
+    });
+
+    message.author = user;
+
+    return res.status(201).json(serializeMessage(message));
+  }),
+);
+
+app.use((error, req, res, next) => {
+  if (res.headersSent) {
+    return next(error);
   }
 
-  rooms.delete(roomKey);
-
-  return res.status(204).send();
-});
-
-app.get('/api/rooms/:roomName/messages', (req, res) => {
-  const name = normalizeRoomName(req.params.roomName);
-  const room = rooms.get(getRoomKey(name));
-
-  if (!room) {
-    return res.status(404).json({
-      message: 'Room not found.',
-    });
-  }
-
-  return res.json(room.messages);
-});
-
-app.post('/api/rooms/:roomName/messages', (req, res) => {
-  const name = normalizeRoomName(req.params.roomName);
-  const room = rooms.get(getRoomKey(name));
-  const author = String(req.body.author || '').trim();
-  const body = String(req.body.body || '').trim();
-
-  if (!room) {
-    return res.status(404).json({
-      message: 'Room not found.',
-    });
-  }
-
-  if (!author) {
-    return res.status(400).json({
-      message: 'Message author is required.',
-    });
-  }
-
-  if (!body) {
-    return res.status(400).json({
-      message: 'Message text is required.',
-    });
-  }
-
-  room.members.add(author);
-
-  const message = {
-    id: nextMessageId,
-    author,
-    time: formatMessageTime(new Date()),
-    body,
-  };
-
-  nextMessageId += 1;
-  room.messages.push(message);
-
-  return res.status(201).json(message);
-});
-
-app.listen(port, () => {
   // eslint-disable-next-line no-console
-  console.log(`Chat backend is listening on port ${port}`);
+  console.error(error);
+
+  return res.status(500).json({
+    message: 'Internal server error.',
+  });
 });
+
+async function start() {
+  try {
+    await connectDatabase();
+
+    app.listen(port, () => {
+      // eslint-disable-next-line no-console
+      console.log(`Chat backend is listening on port ${port}`);
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Unable to start chat backend:', error);
+    process.exit(1);
+  }
+}
+
+start();
+
+module.exports = {
+  app,
+  start,
+};
