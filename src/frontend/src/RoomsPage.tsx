@@ -1,11 +1,14 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
   type FormEvent,
 } from 'react';
+import classNames from 'classnames';
 import { createRoom, deleteRoom, fetchRooms } from './api';
 import DeleteRoomDialog from './DeleteRoomDialog';
+import useAnimatedModal from './hooks/useAnimatedModal';
 import type { Room } from './types';
 
 const usernameKey = 'chat.username';
@@ -19,6 +22,11 @@ function RoomsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Room | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [error, setError] = useState('');
+  const resetDeleteModal = useCallback(() => {
+    setDeleteTarget(null);
+    setDeleteConfirmation('');
+  }, []);
+  const deleteModal = useAnimatedModal({ onAfterClose: resetDeleteModal });
 
   const visibleRooms = useMemo(
     () =>
@@ -73,6 +81,12 @@ function RoomsPage() {
     }
   };
 
+  const openDeleteModal = (room: Room) => {
+    setDeleteTarget(room);
+    setDeleteConfirmation('');
+    deleteModal.open();
+  };
+
   const handleDeleteRoom = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -85,8 +99,7 @@ function RoomsPage() {
       setRooms((currentRooms) =>
         currentRooms.filter((room) => room.name !== deleteTarget.name)
       );
-      setDeleteTarget(null);
-      setDeleteConfirmation('');
+      deleteModal.close();
       setError('');
     } catch {
       setError('Could not delete that room.');
@@ -121,7 +134,7 @@ function RoomsPage() {
             onChange={(event) => setSearch(event.target.value)}
           />
           <button
-            className="app-button primary"
+            className={classNames('app-button', 'primary')}
             type="button"
             onClick={() => setIsCreatingRoom(true)}
           >
@@ -143,7 +156,10 @@ function RoomsPage() {
               >
                 cancel
               </button>
-              <button className="app-button primary" type="submit">
+              <button
+                className={classNames('app-button', 'primary')}
+                type="submit"
+              >
                 create
               </button>
             </div>
@@ -174,12 +190,9 @@ function RoomsPage() {
                   rename
                 </button>
                 <button
-                  className="app-button danger"
+                  className={classNames('app-button', 'danger')}
                   type="button"
-                  onClick={() => {
-                    setDeleteTarget(room);
-                    setDeleteConfirmation('');
-                  }}
+                  onClick={() => openDeleteModal(room)}
                 >
                   delete
                 </button>
@@ -199,14 +212,12 @@ function RoomsPage() {
         ) : null}
       </section>
 
-      {deleteTarget ? (
+      {deleteModal.isOpen && deleteTarget ? (
         <DeleteRoomDialog
           confirmation={deleteConfirmation}
           room={deleteTarget}
-          onCancel={() => {
-            setDeleteTarget(null);
-            setDeleteConfirmation('');
-          }}
+          isClosing={deleteModal.isClosing}
+          onCancel={deleteModal.close}
           onConfirmationChange={setDeleteConfirmation}
           onSubmit={handleDeleteRoom}
         />

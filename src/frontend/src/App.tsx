@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import classNames from 'classnames';
 import './App.css';
 import { login, loginErrors } from './api';
 import ChatPage from './ChatPage';
@@ -75,7 +76,7 @@ function App() {
           <form className="login-form" onSubmit={handleLogin}>
             <label htmlFor="username">Username</label>
             <input
-              className={error ? 'has-error' : ''}
+              className={classNames({ 'has-error': Boolean(error) })}
               id="username"
               name="username"
               type="text"

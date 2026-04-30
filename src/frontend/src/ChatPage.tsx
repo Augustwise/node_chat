@@ -2,8 +2,10 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
+import classNames from 'classnames';
 import {
   createRoom,
   fetchMessages,
@@ -13,6 +15,36 @@ import {
 import type { ChatMessage, Room } from './types';
 
 const usernameKey = 'chat.username';
+const messageRefreshIntervalMs = 3000;
+
+type DisplayMessage = ChatMessage & {
+  shouldAnimate?: boolean;
+};
+
+function markNewMessages(
+  nextMessages: ChatMessage[],
+  currentMessages: DisplayMessage[],
+  shouldAnimateNewMessages: boolean
+): DisplayMessage[] {
+  if (!shouldAnimateNewMessages) {
+    return nextMessages;
+  }
+
+  const currentMessageIds = new Set(
+    currentMessages.map((message) => message.id)
+  );
+  const animatedMessageIds = new Set(
+    currentMessages
+      .filter((message) => message.shouldAnimate)
+      .map((message) => message.id)
+  );
+
+  return nextMessages.map((message) => ({
+    ...message,
+    shouldAnimate:
+      animatedMessageIds.has(message.id) || !currentMessageIds.has(message.id),
+  }));
+}
 
 type FormSubmitEvent = {
   preventDefault: () => void;
@@ -27,11 +59,12 @@ function ChatPage() {
   const storedUsername = localStorage.getItem(usernameKey);
   const username = storedUsername?.trim() || 'guest';
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [activeRoomName, setActiveRoomName] = useState(getHashRoomName());
   const [messageText, setMessageText] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [error, setError] = useState('');
+  const loadedRoomNameRef = useRef<string | null>(null);
   const displayedMessages = activeRoomName ? messages : [];
 
   const activeRoom = useMemo(
@@ -98,22 +131,55 @@ function ChatPage() {
     }
 
     let ignore = false;
+    let hasLoadedMessages = false;
+    let isRefreshingMessages = false;
 
-    fetchMessages(activeRoomName)
-      .then((nextMessages) => {
-        if (!ignore) {
-          setMessages(nextMessages);
-        }
-      })
-      .catch(() => {
-        if (!ignore) {
-          setMessages([]);
-          setError('Could not load messages.');
-        }
-      });
+    const refreshMessages = () => {
+      if (isRefreshingMessages) {
+        return;
+      }
+
+      isRefreshingMessages = true;
+
+      fetchMessages(activeRoomName)
+        .then((nextMessages) => {
+          if (ignore) {
+            return;
+          }
+
+          setMessages((currentMessages) =>
+            markNewMessages(
+              nextMessages,
+              currentMessages,
+              loadedRoomNameRef.current === activeRoomName
+            )
+          );
+          loadedRoomNameRef.current = activeRoomName;
+          hasLoadedMessages = true;
+        })
+        .catch(() => {
+          if (!ignore) {
+            if (!hasLoadedMessages) {
+              setMessages([]);
+            }
+
+            setError('Could not load messages.');
+          }
+        })
+        .finally(() => {
+          isRefreshingMessages = false;
+        });
+    };
+
+    refreshMessages();
+    const refreshInterval = setInterval(
+      refreshMessages,
+      messageRefreshIntervalMs
+    );
 
     return () => {
       ignore = true;
+      clearInterval(refreshInterval);
     };
   }, [activeRoomName]);
 
@@ -156,7 +222,10 @@ function ChatPage() {
     try {
       const message = await postMessage(activeRoomName, username, body);
 
-      setMessages((currentMessages) => [...currentMessages, message]);
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        { ...message, shouldAnimate: true },
+      ]);
       setMessageText('');
       refreshRooms().catch(() => undefined);
     } catch {
@@ -189,7 +258,10 @@ function ChatPage() {
                 name="roomName"
                 placeholder="new-room"
               />
-              <button className="app-button primary" type="submit">
+              <button
+                className={classNames('app-button', 'primary')}
+                type="submit"
+              >
                 create
               </button>
             </form>
@@ -198,9 +270,9 @@ function ChatPage() {
           <nav className="room-list">
             {rooms.map((room) => (
               <a
-                className={
-                  room.name === activeRoomName ? 'room-link active' : 'room-link'
-                }
+                className={classNames('room-link', {
+                  active: room.name === activeRoomName,
+                })}
                 href={`/chat#${encodeURIComponent(room.name)}`}
                 key={room.name}
               >
@@ -240,7 +312,10 @@ function ChatPage() {
                 : 'Create a room to start chatting'}
             </p>
           </div>
-          <a className="app-button rooms-link-button" href="/rooms">
+          <a
+            className={classNames('app-button', 'rooms-link-button')}
+            href="/rooms"
+          >
             rooms
           </a>
         </header>
@@ -253,11 +328,10 @@ function ChatPage() {
             <ol className="message-list">
               {displayedMessages.map((message) => (
                 <li
-                  className={
-                    message.author === username
-                      ? 'message-row mine'
-                      : 'message-row'
-                  }
+                  className={classNames('message-row', {
+                    mine: message.author === username,
+                    'message-appear': message.shouldAnimate,
+                  })}
                   key={message.id}
                 >
                   {message.author !== username ? (

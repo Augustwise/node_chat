@@ -208,26 +208,6 @@
   min-width: 0;
 }
 
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.12);
-}
-
-.delete-room-dialog {
-  display: grid;
-  width: min(100%, 500px);
-  gap: 18px;
-  padding: 26px;
-  color: var(--color-dialog-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-muted);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
-}
-
 .delete-room-dialog h2 {
   position: static;
   width: auto;

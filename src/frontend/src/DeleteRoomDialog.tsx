@@ -1,8 +1,10 @@
 import type { FormEvent } from 'react';
+import classNames from 'classnames';
 import type { Room } from './types';
 
 type DeleteRoomDialogProps = {
   confirmation: string;
+  isClosing?: boolean;
   onCancel: () => void;
   onConfirmationChange: (confirmation: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -11,14 +13,26 @@ type DeleteRoomDialogProps = {
 
 function DeleteRoomDialog({
   confirmation,
+  isClosing,
   onCancel,
   onConfirmationChange,
   onSubmit,
   room,
 }: DeleteRoomDialogProps) {
   return (
-    <div className="modal-backdrop" role="presentation">
-      <form className="delete-room-dialog" onSubmit={onSubmit}>
+    <div
+      // isClosing lets the CSS play the exit animation before unmounting.
+      className={classNames('modal-backdrop', {
+        'modal-closing': isClosing,
+      })}
+      role="presentation"
+    >
+      <form
+        className={classNames('delete-room-dialog', {
+          'dialog-closing': isClosing,
+        })}
+        onSubmit={onSubmit}
+      >
         <h2 id="delete-room-title">delete #{room.name} ?</h2>
         <label htmlFor="delete-room-confirm">
           type the room name to confirm
@@ -35,7 +49,7 @@ function DeleteRoomDialog({
             cancel
           </button>
           <button
-            className="app-button danger solid"
+            className={classNames('app-button', 'danger', 'solid')}
             disabled={confirmation !== room.name}
             type="submit"
           >

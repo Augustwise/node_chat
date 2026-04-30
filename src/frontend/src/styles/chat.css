@@ -222,10 +222,25 @@
   line-height: 1.4;
 }
 
+@keyframes message-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .message-row {
   display: grid;
   width: fit-content;
   max-width: min(520px, 72%);
+}
+
+.message-row.message-appear {
+  animation: message-slide-in 300ms ease-out both;
 }
 
 .message-row.mine {
