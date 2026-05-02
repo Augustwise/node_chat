@@ -2,7 +2,13 @@
 
 const express = require('express');
 const { UniqueConstraintError } = require('sequelize');
-const { connectDatabase, User, Room, Message } = require('./database');
+const {
+  connectDatabase,
+  User,
+  Room,
+  Message,
+  RoomMember,
+} = require('./database');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -61,12 +67,46 @@ function getRequestUsername(req) {
   return String(req.body.username || '').trim();
 }
 
-function isRoomCreator(room, username) {
+function getQueryUsername(req) {
+  return String(req.query.username || '').trim();
+}
+
+async function findUserByUsername(username) {
+  if (!username) {
+    return null;
+  }
+
+  return User.findOne({
+    where: {
+      usernameKey: getUsernameKey(username),
+    },
+  });
+}
+
+async function isRoomCreator(room, username) {
+  const user = await findUserByUsername(username);
+
   return Boolean(
-    username &&
-      room.creatorUsernameKey &&
-      room.creatorUsernameKey === getUsernameKey(username),
+    user &&
+      (room.ownerUserId === user.id ||
+        (room.creatorUsernameKey &&
+          room.creatorUsernameKey === user.usernameKey)),
   );
+}
+
+async function ensureRoomMember(room, user) {
+  try {
+    await RoomMember.findOrCreate({
+      where: {
+        roomId: room.id,
+        userId: user.id,
+      },
+    });
+  } catch (error) {
+    if (!(error instanceof UniqueConstraintError)) {
+      throw error;
+    }
+  }
 }
 
 function sendRoomCreatorRequired(res) {
@@ -75,8 +115,8 @@ function sendRoomCreatorRequired(res) {
   });
 }
 
-async function serializeRoom(room) {
-  const [lastMessage, members] = await Promise.all([
+async function serializeRoom(room, viewer) {
+  const [lastMessage, members, joined] = await Promise.all([
     Message.findOne({
       where: {
         roomId: room.id,
@@ -94,19 +134,21 @@ async function serializeRoom(room) {
       ],
     }),
     room.countMembers(),
+    viewer ? room.hasMember(viewer) : false,
   ]);
 
   return {
     name: room.name,
     creatorUsername: room.creatorUsername || '',
     creatorUsernameKey: room.creatorUsernameKey || '',
+    ownerUserId: room.ownerUserId,
     members,
     preview: lastMessage
       ? `${lastMessage.author.username}: ${lastMessage.body}`
       : '',
     time: lastMessage ? formatMessageTime(lastMessage.createdAt) : '',
     unread: 0,
-    joined: true,
+    joined,
   };
 }
 
@@ -149,13 +191,16 @@ app.post(
 app.get(
   '/api/rooms',
   asyncRoute(async (req, res) => {
+    const viewer = await findUserByUsername(getQueryUsername(req));
     const rooms = await Room.findAll({
       order: [
         ['createdAt', 'ASC'],
         ['id', 'ASC'],
       ],
     });
-    const serializedRooms = await Promise.all(rooms.map(serializeRoom));
+    const serializedRooms = await Promise.all(
+      rooms.map((room) => serializeRoom(room, viewer)),
+    );
 
     return res.json(serializedRooms);
   }),
@@ -188,6 +233,7 @@ app.post(
         roomKey: getRoomKey(name),
         creatorUsername: user.username,
         creatorUsernameKey: user.usernameKey,
+        ownerUserId: user.id,
       });
     } catch (error) {
       if (error instanceof UniqueConstraintError) {
@@ -199,9 +245,9 @@ app.post(
       throw error;
     }
 
-    await room.addMember(user);
+    await ensureRoomMember(room, user);
 
-    return res.status(201).json(await serializeRoom(room));
+    return res.status(201).json(await serializeRoom(room, user));
   }),
 );
 
@@ -219,7 +265,7 @@ app.patch(
       });
     }
 
-    if (!isRoomCreator(room, username)) {
+    if (!(await isRoomCreator(room, username))) {
       return sendRoomCreatorRequired(res);
     }
 
@@ -244,7 +290,9 @@ app.patch(
       throw error;
     }
 
-    return res.json(await serializeRoom(room));
+    const viewer = await findUserByUsername(username);
+
+    return res.json(await serializeRoom(room, viewer));
   }),
 );
 
@@ -261,13 +309,68 @@ app.delete(
       });
     }
 
-    if (!isRoomCreator(room, username)) {
+    if (!(await isRoomCreator(room, username))) {
       return sendRoomCreatorRequired(res);
     }
 
+    await room.setMembers([]);
     await room.destroy();
 
     return res.status(204).send();
+  }),
+);
+
+app.post(
+  '/api/rooms/:roomName/members',
+  asyncRoute(async (req, res) => {
+    const name = normalizeRoomName(req.params.roomName);
+    const username = getRequestUsername(req);
+    const room = await findRoomByName(name);
+
+    if (!room) {
+      return res.status(404).json({
+        message: 'Room not found.',
+      });
+    }
+
+    if (!username) {
+      return res.status(400).json({
+        message: 'Username is required.',
+      });
+    }
+
+    const user = await findOrCreateUser(username);
+
+    await ensureRoomMember(room, user);
+
+    return res.json(await serializeRoom(room, user));
+  }),
+);
+
+app.delete(
+  '/api/rooms/:roomName/members',
+  asyncRoute(async (req, res) => {
+    const name = normalizeRoomName(req.params.roomName);
+    const username = getRequestUsername(req);
+    const room = await findRoomByName(name);
+
+    if (!room) {
+      return res.status(404).json({
+        message: 'Room not found.',
+      });
+    }
+
+    const user = await findUserByUsername(username);
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found.',
+      });
+    }
+
+    await room.removeMember(user);
+
+    return res.json(await serializeRoom(room, user));
   }),
 );
 
@@ -332,7 +435,7 @@ app.post(
 
     const user = await findOrCreateUser(author);
 
-    await room.addMember(user);
+    await ensureRoomMember(room, user);
 
     const message = await Message.create({
       roomId: room.id,

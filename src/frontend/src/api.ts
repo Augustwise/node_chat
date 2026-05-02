@@ -54,8 +54,11 @@ export async function login(username: string): Promise<LoginResponse> {
   return response.json();
 }
 
-export async function fetchRooms(): Promise<Room[]> {
-  const response = await request<Room[]>('/api/rooms');
+export async function fetchRooms(username?: string): Promise<Room[]> {
+  const search = username
+    ? `?username=${encodeURIComponent(username)}`
+    : '';
+  const response = await request<Room[]>(`/api/rooms${search}`);
 
   if (!response.ok) {
     throw new Error('rooms-failed');
@@ -131,6 +134,50 @@ export async function deleteRoom(
   if (!response.ok) {
     throw new Error('room-delete-failed');
   }
+}
+
+export async function joinRoom(
+  name: string,
+  username: string,
+): Promise<Room> {
+  const response = await request<Room>(
+    `/api/rooms/${encodeURIComponent(name)}/members`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error('room-join-failed');
+  }
+
+  return response.json();
+}
+
+export async function leaveRoom(
+  name: string,
+  username: string,
+): Promise<Room> {
+  const response = await request<Room>(
+    `/api/rooms/${encodeURIComponent(name)}/members`,
+    {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error('room-leave-failed');
+  }
+
+  return response.json();
 }
 
 export async function fetchMessages(roomName: string): Promise<ChatMessage[]> {

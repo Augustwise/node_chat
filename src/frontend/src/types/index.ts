@@ -6,6 +6,7 @@ export type Room = {
   name: string;
   creatorUsername: string;
   creatorUsernameKey: string;
+  ownerUserId: number | null;
   members: number;
   preview: string;
   time: string;

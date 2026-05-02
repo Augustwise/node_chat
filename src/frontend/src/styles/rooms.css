@@ -201,7 +201,7 @@
 
 .room-actions {
   display: grid;
-  grid-template-columns: repeat(3, 100px);
+  grid-template-columns: repeat(4, 86px);
   align-items: center;
   gap: 8px;
 }
@@ -210,6 +210,11 @@
 .room-actions a {
   width: 100%;
   min-width: 0;
+}
+
+.room-actions .app-button {
+  padding: 0 10px;
+  text-align: center;
 }
 
 .delete-room-dialog h2 {
@@ -241,7 +246,7 @@
   }
 
   .room-actions {
-    grid-template-columns: repeat(3, 80px);
+    grid-template-columns: repeat(4, 72px);
     gap: 6px;
   }
 

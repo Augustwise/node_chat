@@ -78,6 +78,10 @@ const Room = sequelize.define(
       type: DataTypes.STRING(80),
       allowNull: true,
     },
+    ownerUserId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
   },
   {
     tableName: 'rooms',
@@ -110,6 +114,7 @@ Room.belongsToMany(User, {
   as: 'members',
   foreignKey: 'roomId',
   otherKey: 'userId',
+  onDelete: 'CASCADE',
 });
 
 User.belongsToMany(Room, {
@@ -117,6 +122,24 @@ User.belongsToMany(Room, {
   as: 'rooms',
   foreignKey: 'userId',
   otherKey: 'roomId',
+  onDelete: 'CASCADE',
+});
+
+User.hasMany(Room, {
+  as: 'ownedRooms',
+  foreignKey: {
+    allowNull: true,
+    name: 'ownerUserId',
+  },
+  onDelete: 'SET NULL',
+});
+
+Room.belongsTo(User, {
+  as: 'owner',
+  foreignKey: {
+    allowNull: true,
+    name: 'ownerUserId',
+  },
 });
 
 Room.hasMany(Message, {
@@ -187,6 +210,27 @@ async function connectDatabase() {
       allowNull: true,
     });
   }
+
+  if (!roomColumns.owner_user_id) {
+    await queryInterface.addColumn('rooms', 'owner_user_id', {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id',
+      },
+      onDelete: 'SET NULL',
+      onUpdate: 'CASCADE',
+    });
+  }
+
+  await sequelize.query(`
+    UPDATE rooms
+    SET owner_user_id = users.id
+    FROM users
+    WHERE rooms.owner_user_id IS NULL
+      AND rooms.creator_username_key = users.username_key
+  `);
 }
 
 module.exports = {

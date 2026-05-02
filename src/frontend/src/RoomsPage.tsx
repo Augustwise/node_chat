@@ -13,6 +13,7 @@ function RoomsPage() {
     handleCreateRoom,
     handleDeleteDialogOpenChange,
     handleDeleteRoom,
+    handleLeaveRoom,
     handleRenameDialogOpenChange,
     handleRenameRoom,
     isCreatingRoom,
@@ -124,6 +125,19 @@ function RoomsPage() {
                     onClick={() => openRenameModal(room)}
                   >
                     rename
+                  </button>
+                  <button
+                    className={classNames('app-button', 'danger')}
+                    disabled={!room.joined}
+                    title={
+                      room.joined
+                        ? 'Leave room'
+                        : 'Join the room before leaving it'
+                    }
+                    type="button"
+                    onClick={() => handleLeaveRoom(room)}
+                  >
+                    leave
                   </button>
                   <button
                     className={classNames('app-button', 'danger')}

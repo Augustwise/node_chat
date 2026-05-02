@@ -10,6 +10,8 @@ import {
   createRoom,
   fetchMessages,
   fetchRooms,
+  joinRoom,
+  leaveRoom,
   postMessage,
 } from './api';
 import type { ChatMessage, Room } from './types';
@@ -67,6 +69,10 @@ function ChatPage() {
   const [error, setError] = useState('');
   const loadedRoomNameRef = useRef<string | null>(null);
   const displayedMessages = activeRoomName ? messages : [];
+  const joinedRooms = useMemo(
+    () => rooms.filter((room) => room.joined),
+    [rooms]
+  );
 
   const activeRoom = useMemo(
     () => rooms.find((room) => room.name === activeRoomName),
@@ -74,24 +80,26 @@ function ChatPage() {
   );
 
   const refreshRooms = useCallback(async () => {
-    const nextRooms = await fetchRooms();
+    const nextRooms = await fetchRooms(username);
 
     setRooms(nextRooms);
 
-    if (!getHashRoomName() && nextRooms[0]) {
+    const firstJoinedRoom = nextRooms.find((room) => room.joined);
+
+    if (!getHashRoomName() && firstJoinedRoom) {
       window.history.replaceState(
         null,
         '',
-        `/chat#${encodeURIComponent(nextRooms[0].name)}`
+        `/chat#${encodeURIComponent(firstJoinedRoom.name)}`
       );
-      setActiveRoomName(nextRooms[0].name);
+      setActiveRoomName(firstJoinedRoom.name);
     }
-  }, []);
+  }, [username]);
 
   useEffect(() => {
     let ignore = false;
 
-    fetchRooms()
+    fetchRooms(username)
       .then((nextRooms) => {
         if (ignore) {
           return;
@@ -99,13 +107,15 @@ function ChatPage() {
 
         setRooms(nextRooms);
 
-        if (!getHashRoomName() && nextRooms[0]) {
+        const firstJoinedRoom = nextRooms.find((room) => room.joined);
+
+        if (!getHashRoomName() && firstJoinedRoom) {
           window.history.replaceState(
             null,
             '',
-            `/chat#${encodeURIComponent(nextRooms[0].name)}`
+            `/chat#${encodeURIComponent(firstJoinedRoom.name)}`
           );
-          setActiveRoomName(nextRooms[0].name);
+          setActiveRoomName(firstJoinedRoom.name);
         }
       })
       .catch(() => {
@@ -124,7 +134,39 @@ function ChatPage() {
       ignore = true;
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, []);
+  }, [username]);
+
+  useEffect(() => {
+    if (!activeRoomName) {
+      return;
+    }
+
+    let ignore = false;
+
+    joinRoom(activeRoomName, username)
+      .then((room) => {
+        if (ignore) {
+          return;
+        }
+
+        setRooms((currentRooms) =>
+          currentRooms.some((currentRoom) => currentRoom.name === room.name)
+            ? currentRooms.map((currentRoom) =>
+                currentRoom.name === room.name ? room : currentRoom
+              )
+            : [...currentRooms, room]
+        );
+      })
+      .catch(() => {
+        if (!ignore) {
+          setError('Could not join that room.');
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [activeRoomName, username]);
 
   useEffect(() => {
     if (!activeRoomName) {
@@ -238,6 +280,19 @@ function ChatPage() {
     }
   };
 
+  const handleLeaveActiveRoom = async () => {
+    if (!activeRoom) {
+      return;
+    }
+
+    try {
+      await leaveRoom(activeRoom.name, username);
+      window.location.assign('/rooms');
+    } catch {
+      setError('Could not leave that room.');
+    }
+  };
+
   return (
     <main className="chat-page">
       <aside className="rooms-sidebar">
@@ -273,7 +328,7 @@ function ChatPage() {
           ) : null}
 
           <nav className="room-list">
-            {rooms.map((room) => (
+            {joinedRooms.map((room) => (
               <a
                 className={classNames('room-link', {
                   active: room.name === activeRoomName,
@@ -317,12 +372,23 @@ function ChatPage() {
                 : 'Create a room to start chatting'}
             </p>
           </div>
-          <a
-            className={classNames('app-button', 'rooms-link-button')}
-            href="/rooms"
-          >
-            rooms
-          </a>
+          <div className="chat-header-actions">
+            {activeRoom?.joined ? (
+              <button
+                className={classNames('app-button', 'danger')}
+                type="button"
+                onClick={handleLeaveActiveRoom}
+              >
+                Leave Room
+              </button>
+            ) : null}
+            <a
+              className={classNames('app-button', 'rooms-link-button')}
+              href="/rooms"
+            >
+              rooms
+            </a>
+          </div>
         </header>
 
         <div className="message-scroll">

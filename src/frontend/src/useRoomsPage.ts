@@ -5,7 +5,13 @@ import {
   useState,
   type FormEvent,
 } from 'react';
-import { createRoom, deleteRoom, fetchRooms, renameRoom } from './api';
+import {
+  createRoom,
+  deleteRoom,
+  fetchRooms,
+  leaveRoom,
+  renameRoom,
+} from './api';
 import type { Room } from './types';
 
 const usernameKey = 'chat.username';
@@ -46,7 +52,7 @@ function useRoomsPage() {
   useEffect(() => {
     let ignore = false;
 
-    fetchRooms()
+    fetchRooms(username)
       .then((nextRooms) => {
         if (!ignore) {
           setRooms(nextRooms);
@@ -61,7 +67,7 @@ function useRoomsPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [username]);
 
   const handleCreateRoom = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -166,6 +172,25 @@ function useRoomsPage() {
     }
   };
 
+  const handleLeaveRoom = async (room: Room) => {
+    if (!room.joined) {
+      return;
+    }
+
+    try {
+      const nextRoom = await leaveRoom(room.name, username);
+
+      setRooms((currentRooms) =>
+        currentRooms.map((currentRoom) =>
+          currentRoom.name === room.name ? nextRoom : currentRoom,
+        ),
+      );
+      setError('');
+    } catch {
+      setError('Could not leave that room.');
+    }
+  };
+
   return {
     canManageRoom,
     deleteConfirmation,
@@ -175,6 +200,7 @@ function useRoomsPage() {
     handleCreateRoom,
     handleDeleteDialogOpenChange,
     handleDeleteRoom,
+    handleLeaveRoom,
     handleRenameDialogOpenChange,
     handleRenameRoom,
     isCreatingRoom,
