@@ -17,6 +17,7 @@ export type Room = {
 export type ChatMessage = {
   id: number;
   author: string;
+  date: string;
   time: string;
   body: string;
 };

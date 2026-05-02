@@ -11,6 +11,11 @@ function formatMessageTime(date) {
   ).padStart(2, '0')}`;
 }
 
+function formatMessageDate(date) {
+  return new Date(date).toISOString();
+}
+
 module.exports = {
+  formatMessageDate,
   formatMessageTime,
 };

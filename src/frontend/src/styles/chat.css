@@ -219,6 +219,10 @@
   line-height: 1;
 }
 
+.message-list + .day-pill {
+  margin-top: 22px;
+}
+
 .message-list {
   display: grid;
   gap: 20px;

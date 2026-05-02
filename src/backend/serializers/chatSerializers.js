@@ -1,12 +1,13 @@
 'use strict';
 
 const { User, Message } = require('../database');
-const { formatMessageTime } = require('../utils/time');
+const { formatMessageDate, formatMessageTime } = require('../utils/time');
 
 function serializeMessage(message) {
   return {
     id: message.id,
     author: message.author.username,
+    date: formatMessageDate(message.createdAt),
     time: formatMessageTime(message.createdAt),
     body: message.body,
   };
