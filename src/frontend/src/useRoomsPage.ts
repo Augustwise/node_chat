@@ -5,13 +5,7 @@ import {
   useState,
   type FormEvent,
 } from 'react';
-import {
-  createRoom,
-  deleteRoom,
-  fetchRooms,
-  leaveRoom,
-  renameRoom,
-} from './api';
+import { getChatSocket } from './chatSocket';
 import type { Room } from './types';
 
 const usernameKey = 'chat.username';
@@ -30,6 +24,7 @@ function getStoredUsername() {
 function useRoomsPage() {
   const username = getStoredUsername();
   const currentUsernameKey = getUsernameKey(username);
+  const chatSocket = useMemo(() => getChatSocket(username), [username]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [search, setSearch] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
@@ -52,7 +47,8 @@ function useRoomsPage() {
   useEffect(() => {
     let ignore = false;
 
-    fetchRooms(username)
+    chatSocket
+      .fetchRooms()
       .then((nextRooms) => {
         if (!ignore) {
           setRooms(nextRooms);
@@ -64,10 +60,17 @@ function useRoomsPage() {
         }
       });
 
+    const stopRoomUpdates = chatSocket.on('rooms:update', (nextRooms) => {
+      if (!ignore) {
+        setRooms(nextRooms);
+      }
+    });
+
     return () => {
       ignore = true;
+      stopRoomUpdates();
     };
-  }, [username]);
+  }, [chatSocket]);
 
   const handleCreateRoom = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -83,9 +86,21 @@ function useRoomsPage() {
     }
 
     try {
-      const room = await createRoom(name, username);
+      const room = await chatSocket.createRoom(name);
 
-      setRooms((currentRooms) => [...currentRooms, room]);
+      setRooms((currentRooms) => {
+        const roomExists = currentRooms.some(
+          (currentRoom) => currentRoom.name === room.name,
+        );
+
+        if (roomExists) {
+          return currentRooms.map((currentRoom) =>
+            currentRoom.name === room.name ? room : currentRoom,
+          );
+        }
+
+        return [...currentRooms, room];
+      });
       setIsCreatingRoom(false);
       setError('');
       form.reset();
@@ -125,7 +140,7 @@ function useRoomsPage() {
     }
 
     try {
-      const room = await renameRoom(renameTarget.name, nextName, username);
+      const room = await chatSocket.renameRoom(renameTarget.name, nextName);
 
       setRooms((currentRooms) =>
         currentRooms.map((currentRoom) =>
@@ -161,7 +176,7 @@ function useRoomsPage() {
     }
 
     try {
-      await deleteRoom(deleteTarget.name, username);
+      await chatSocket.deleteRoom(deleteTarget.name);
       setRooms((currentRooms) =>
         currentRooms.filter((room) => room.name !== deleteTarget.name),
       );
@@ -178,7 +193,7 @@ function useRoomsPage() {
     }
 
     try {
-      const nextRoom = await leaveRoom(room.name, username);
+      const nextRoom = await chatSocket.leaveRoom(room.name);
 
       setRooms((currentRooms) =>
         currentRooms.map((currentRoom) =>

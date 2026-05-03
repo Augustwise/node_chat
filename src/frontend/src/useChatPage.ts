@@ -6,19 +6,11 @@ import {
   useState,
   type FormEvent,
 } from 'react';
-import {
-  createRoom,
-  fetchMessages,
-  fetchRooms,
-  joinRoom,
-  leaveRoom,
-  postMessage,
-} from './api';
+import { getChatSocket } from './chatSocket';
 import {
   duplicateRoomMessage,
   getHashRoomName,
   markNewMessages,
-  messageRefreshIntervalMs,
   usernameKey,
   type DisplayMessage,
 } from './chatPageUtils';
@@ -33,6 +25,8 @@ function useChatPage() {
   const [messageText, setMessageText] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [error, setError] = useState('');
+  const chatSocket = useMemo(() => getChatSocket(username), [username]);
+  const activeRoomNameRef = useRef(activeRoomName);
   const loadedRoomNameRef = useRef<string | null>(null);
   const displayedMessages = activeRoomName ? messages : [];
   const joinedRooms = useMemo(
@@ -45,9 +39,11 @@ function useChatPage() {
     [activeRoomName, rooms],
   );
 
-  const refreshRooms = useCallback(async () => {
-    const nextRooms = await fetchRooms(username);
+  useEffect(() => {
+    activeRoomNameRef.current = activeRoomName;
+  }, [activeRoomName]);
 
+  const showRooms = useCallback((nextRooms: Room[]) => {
     setRooms(nextRooms);
 
     const firstJoinedRoom = nextRooms.find((room) => room.joined);
@@ -60,35 +56,55 @@ function useChatPage() {
       );
       setActiveRoomName(firstJoinedRoom.name);
     }
-  }, [username]);
+  }, []);
 
   useEffect(() => {
     let ignore = false;
 
-    fetchRooms(username)
+    chatSocket
+      .fetchRooms()
       .then((nextRooms) => {
         if (ignore) {
           return;
         }
 
-        setRooms(nextRooms);
-
-        const firstJoinedRoom = nextRooms.find((room) => room.joined);
-
-        if (!getHashRoomName() && firstJoinedRoom) {
-          window.history.replaceState(
-            null,
-            '',
-            `/chat#${encodeURIComponent(firstJoinedRoom.name)}`,
-          );
-          setActiveRoomName(firstJoinedRoom.name);
-        }
+        showRooms(nextRooms);
       })
       .catch(() => {
         if (!ignore) {
           setError('Could not load rooms.');
         }
       });
+
+    const stopRoomUpdates = chatSocket.on('rooms:update', (nextRooms) => {
+      if (!ignore) {
+        showRooms(nextRooms);
+      }
+    });
+
+    const stopRoomRenames = chatSocket.on('room:renamed', (event) => {
+      if (activeRoomNameRef.current !== event.oldName) {
+        return;
+      }
+
+      window.history.replaceState(
+        null,
+        '',
+        `/chat#${encodeURIComponent(event.room.name)}`,
+      );
+      setActiveRoomName(event.room.name);
+    });
+
+    const stopRoomDeletes = chatSocket.on('room:deleted', (event) => {
+      if (activeRoomNameRef.current !== event.name) {
+        return;
+      }
+
+      window.history.replaceState(null, '', '/chat');
+      loadedRoomNameRef.current = null;
+      setMessages([]);
+      setActiveRoomName('');
+    });
 
     const handleHashChange = () => {
       setActiveRoomName(getHashRoomName());
@@ -98,9 +114,12 @@ function useChatPage() {
 
     return () => {
       ignore = true;
+      stopRoomUpdates();
+      stopRoomRenames();
+      stopRoomDeletes();
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, [username]);
+  }, [chatSocket, showRooms]);
 
   useEffect(() => {
     if (!activeRoomName) {
@@ -109,10 +128,20 @@ function useChatPage() {
 
     let ignore = false;
 
-    joinRoom(activeRoomName, username)
+    chatSocket
+      .joinRoom(activeRoomName)
       .then((room) => {
         if (ignore) {
           return;
+        }
+
+        if (activeRoomName !== room.name) {
+          window.history.replaceState(
+            null,
+            '',
+            `/chat#${encodeURIComponent(room.name)}`,
+          );
+          setActiveRoomName(room.name);
         }
 
         setRooms((currentRooms) =>
@@ -132,7 +161,7 @@ function useChatPage() {
     return () => {
       ignore = true;
     };
-  }, [activeRoomName, username]);
+  }, [activeRoomName, chatSocket]);
 
   useEffect(() => {
     if (!activeRoomName) {
@@ -140,57 +169,63 @@ function useChatPage() {
     }
 
     let ignore = false;
-    let hasLoadedMessages = false;
-    let isRefreshingMessages = false;
 
-    const refreshMessages = () => {
-      if (isRefreshingMessages) {
-        return;
-      }
+    chatSocket
+      .fetchMessages(activeRoomName)
+      .then((nextMessages) => {
+        if (ignore) {
+          return;
+        }
 
-      isRefreshingMessages = true;
-
-      fetchMessages(activeRoomName)
-        .then((nextMessages) => {
-          if (ignore) {
-            return;
-          }
-
-          setMessages((currentMessages) =>
-            markNewMessages(
-              nextMessages,
-              currentMessages,
-              loadedRoomNameRef.current === activeRoomName,
-            ),
-          );
-          loadedRoomNameRef.current = activeRoomName;
-          hasLoadedMessages = true;
-        })
-        .catch(() => {
-          if (!ignore) {
-            if (!hasLoadedMessages) {
-              setMessages([]);
-            }
-
-            setError('Could not load messages.');
-          }
-        })
-        .finally(() => {
-          isRefreshingMessages = false;
-        });
-    };
-
-    refreshMessages();
-    const refreshInterval = setInterval(
-      refreshMessages,
-      messageRefreshIntervalMs,
-    );
+        setMessages((currentMessages) =>
+          markNewMessages(
+            nextMessages,
+            currentMessages,
+            loadedRoomNameRef.current === activeRoomName,
+          ),
+        );
+        loadedRoomNameRef.current = activeRoomName;
+      })
+      .catch(() => {
+        if (!ignore) {
+          setMessages([]);
+          setError('Could not load messages.');
+        }
+      });
 
     return () => {
       ignore = true;
-      clearInterval(refreshInterval);
     };
-  }, [activeRoomName]);
+  }, [activeRoomName, chatSocket]);
+
+  useEffect(() => {
+    return chatSocket.on('messages:created', (event) => {
+      if (
+        activeRoomNameRef.current.toLowerCase() !== event.roomName.toLowerCase()
+      ) {
+        return;
+      }
+
+      setMessages((currentMessages) => {
+        if (
+          currentMessages.some(
+            (currentMessage) => currentMessage.id === event.message.id,
+          )
+        ) {
+          return currentMessages;
+        }
+
+        return [
+          ...currentMessages,
+          {
+            ...event.message,
+            shouldAnimate: true,
+          },
+        ];
+      });
+      loadedRoomNameRef.current = event.roomName;
+    });
+  }, [chatSocket]);
 
   const handleCreateRoom = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -206,9 +241,15 @@ function useChatPage() {
     }
 
     try {
-      const room = await createRoom(name, username);
+      const room = await chatSocket.createRoom(name);
 
-      setRooms((currentRooms) => [...currentRooms, room]);
+      setRooms((currentRooms) =>
+        currentRooms.some((currentRoom) => currentRoom.name === room.name)
+          ? currentRooms.map((currentRoom) =>
+              currentRoom.name === room.name ? room : currentRoom,
+            )
+          : [...currentRooms, room],
+      );
       setIsCreatingRoom(false);
       setError('');
       form.reset();
@@ -233,14 +274,9 @@ function useChatPage() {
     }
 
     try {
-      const message = await postMessage(activeRoomName, username, body);
+      await chatSocket.postMessage(activeRoomName, body);
 
-      setMessages((currentMessages) => [
-        ...currentMessages,
-        { ...message, shouldAnimate: true },
-      ]);
       setMessageText('');
-      refreshRooms().catch(() => undefined);
     } catch {
       setError('Could not send your message.');
     }
@@ -252,7 +288,7 @@ function useChatPage() {
     }
 
     try {
-      await leaveRoom(activeRoom.name, username);
+      await chatSocket.leaveRoom(activeRoom.name);
       window.location.assign('/rooms');
     } catch {
       setError('Could not leave that room.');
