@@ -3,7 +3,7 @@ import {
   useEffect,
   useMemo,
   useState,
-  type FormEvent,
+  type SubmitEvent,
 } from 'react';
 import { getChatSocket } from './chatSocket';
 import type { Room } from './types';
@@ -72,7 +72,7 @@ function useRoomsPage() {
     };
   }, [chatSocket]);
 
-  const handleCreateRoom = async (event: FormEvent<HTMLFormElement>) => {
+  const handleCreateRoom = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const form = event.currentTarget;
@@ -158,7 +158,7 @@ function useRoomsPage() {
     }
   };
 
-  const handleRenameRoom = async (event: FormEvent<HTMLFormElement>) => {
+  const handleRenameRoom = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!renameTarget) {
@@ -186,10 +186,10 @@ function useRoomsPage() {
     }
   }, []);
 
-  const handleDeleteRoom = async (event: FormEvent<HTMLFormElement>) => {
+  const handleDeleteRoom = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!deleteTarget || deleteConfirmation !== deleteTarget.name) {
+    if (deleteConfirmation !== deleteTarget?.name) {
       return;
     }
 

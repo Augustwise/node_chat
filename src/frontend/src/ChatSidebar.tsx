@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import classNames from 'classnames';
 import type { Room } from './types';
 
@@ -7,7 +7,7 @@ type ChatSidebarProps = {
   isCreatingRoom: boolean;
   joinedRooms: Room[];
   username: string;
-  onCreateRoom: (event: FormEvent<HTMLFormElement>) => void;
+  onCreateRoom: (event: SubmitEvent<HTMLFormElement>) => void;
   onToggleCreateRoom: () => void;
 };
 

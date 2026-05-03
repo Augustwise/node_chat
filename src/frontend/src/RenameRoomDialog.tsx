@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import classNames from 'classnames';
 import type { Room } from './types';
@@ -7,7 +7,7 @@ type RenameRoomDialogProps = {
   name: string;
   onNameChange: (name: string) => void;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
   open: boolean;
   room: Room;
 };

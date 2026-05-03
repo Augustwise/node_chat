@@ -14,7 +14,7 @@ import type {
 function getSocketUrl(username: string) {
   const query = new URLSearchParams({ username });
 
-  return `ws://${window.location.host}/ws?${query.toString()}`;
+  return `ws://${globalThis.location.host}/ws?${query.toString()}`;
 }
 
 class ChatSocketClient {
@@ -207,8 +207,8 @@ class ChatSocketClient {
     }
 
     this.reconnectAttempts += 1;
-    window.clearTimeout(this.reconnectTimer);
-    this.reconnectTimer = window.setTimeout(() => {
+    globalThis.clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = globalThis.setTimeout(() => {
       this.connect().catch(() => undefined);
     }, 500);
   }

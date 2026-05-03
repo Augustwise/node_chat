@@ -1,4 +1,4 @@
-import type { ChatMessage } from './types';
+import type { ChatMessage, Room } from './types';
 
 export const usernameKey = 'chat.username';
 export const duplicateRoomMessage = 'A room with that name already exists.';
@@ -8,7 +8,7 @@ export type DisplayMessage = ChatMessage & {
 };
 
 export function getHashRoomName() {
-  return decodeURIComponent(window.location.hash.replace(/^#/, '')).trim();
+  return decodeURIComponent(globalThis.location.hash.replace(/^#/, '')).trim();
 }
 
 /**
@@ -81,4 +81,32 @@ export function markNewMessages(
     shouldAnimate:
       animatedMessageIds.has(message.id) || !currentMessageIds.has(message.id),
   }));
+}
+
+/**
+ * Updates or inserts a room in the rooms array.
+ * If the room already exists (by name), it will be updated.
+ * If the room doesn't exist, it will be added to the end of the array.
+ */
+export function upsertRoom(rooms: Room[], room: Room): Room[] {
+  const exists = rooms.some((current) => current.name === room.name);
+
+  if (!exists) {
+    return [...rooms, room];
+  }
+
+  return rooms.map((current) => (current.name === room.name ? room : current));
+}
+
+export function appendUniqueMessage(
+  messages: DisplayMessage[],
+  message: DisplayMessage,
+): DisplayMessage[] {
+  const exists = messages.some((current) => current.id === message.id);
+
+  if (exists) {
+    return messages;
+  }
+
+  return [...messages, message];
 }

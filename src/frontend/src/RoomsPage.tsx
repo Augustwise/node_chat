@@ -9,10 +9,7 @@ import useRoomsPage from './useRoomsPage';
 const mobileRoomsMedia = '(max-width: 520px)';
 
 function isMobileRoomsViewport() {
-  return (
-    typeof window !== 'undefined' &&
-    window.matchMedia(mobileRoomsMedia).matches
-  );
+  return globalThis.matchMedia?.(mobileRoomsMedia).matches ?? false;
 }
 
 function RoomsPage() {
@@ -55,11 +52,11 @@ function RoomsPage() {
     : false;
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (globalThis.matchMedia === undefined) {
       return;
     }
 
-    const media = window.matchMedia(mobileRoomsMedia);
+    const media = globalThis.matchMedia(mobileRoomsMedia);
     const closeSheetOnDesktop = () => {
       if (!media.matches) {
         setMobileSheetRoomName(null);
@@ -251,9 +248,9 @@ function RoomsPage() {
           })}
         </ol>
 
-        {!visibleRooms.length ? (
+        {visibleRooms.length ? null : (
           <p className="rooms-status">No rooms found.</p>
-        ) : null}
+        )}
       </section>
 
       <RoomControlSheet

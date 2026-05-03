@@ -233,7 +233,7 @@ function createChatWebSocketServer(server) {
           console.error(error);
         }
 
-        sendError(socket, requestMessage && requestMessage.requestId, message);
+        sendError(socket, requestMessage?.requestId, message);
       }
     });
 

@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import classNames from 'classnames';
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import type { Room } from './types';
 
 type RoomControlSheetProps = {
@@ -24,7 +24,7 @@ function RoomControlSheet({
   const canSaveName =
     canManageRoom && Boolean(name.trim()) && name.trim() !== room?.name;
 
-  const handleRenameRoom = async (event: FormEvent<HTMLFormElement>) => {
+  const handleRenameRoom = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!room) {

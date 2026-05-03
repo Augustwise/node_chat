@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import classNames from 'classnames';
 import './App.css';
 import { login, loginErrors } from './api';
@@ -14,7 +14,7 @@ function App() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const formData = new FormData(event.currentTarget);
@@ -33,7 +33,7 @@ function App() {
       const data = await login(nextUsername);
 
       localStorage.setItem(usernameKey, data.username);
-      window.location.assign('/chat');
+      globalThis.location.assign('/chat');
     } catch (loginError) {
       if (
         loginError instanceof Error &&
@@ -50,20 +50,20 @@ function App() {
     }
   };
 
-  if (['/chat', '/rooms'].includes(window.location.pathname) && !username) {
-    window.history.replaceState(null, '', '/login');
+  if (['/chat', '/rooms'].includes(globalThis.location.pathname) && !username) {
+    globalThis.history.replaceState(null, '', '/login');
   }
 
-  if (window.location.pathname === '/rooms') {
+  if (globalThis.location.pathname === '/rooms') {
     return <RoomsPage />;
   }
 
-  if (window.location.pathname === '/chat') {
+  if (globalThis.location.pathname === '/chat') {
     return <ChatPage />;
   }
 
-  if (window.location.pathname !== '/login') {
-    window.history.replaceState(null, '', '/login');
+  if (globalThis.location.pathname !== '/login') {
+    globalThis.history.replaceState(null, '', '/login');
   }
 
   return (

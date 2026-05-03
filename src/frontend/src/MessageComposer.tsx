@@ -1,11 +1,11 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import type { Room } from './types';
 
 type MessageComposerProps = {
   activeRoom: Room | undefined;
   messageText: string;
   onMessageTextChange: (messageText: string) => void;
-  onPostMessage: (event: FormEvent<HTMLFormElement>) => void;
+  onPostMessage: (event: SubmitEvent<HTMLFormElement>) => void;
 };
 
 function MessageComposer({
