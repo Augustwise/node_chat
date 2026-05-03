@@ -1,7 +1,19 @@
 import classNames from 'classnames';
+import { useEffect, useMemo, useState } from 'react';
 import DeleteRoomDialog from './DeleteRoomDialog';
+import RoomControlSheet from './RoomControlSheet';
 import RenameRoomDialog from './RenameRoomDialog';
+import type { Room } from './types';
 import useRoomsPage from './useRoomsPage';
+
+const mobileRoomsMedia = '(max-width: 520px)';
+
+function isMobileRoomsViewport() {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia(mobileRoomsMedia).matches
+  );
+}
 
 function RoomsPage() {
   const {
@@ -19,6 +31,7 @@ function RoomsPage() {
     isCreatingRoom,
     openDeleteModal,
     openRenameModal,
+    renameRoom,
     renameDialogOpen,
     renameName,
     renameTarget,
@@ -29,6 +42,61 @@ function RoomsPage() {
     setSearch,
     visibleRooms,
   } = useRoomsPage();
+  const [mobileSheetRoomName, setMobileSheetRoomName] = useState<string | null>(
+    null,
+  );
+  const mobileSheetRoom = useMemo(
+    () =>
+      visibleRooms.find((room) => room.name === mobileSheetRoomName) ?? null,
+    [mobileSheetRoomName, visibleRooms],
+  );
+  const canManageMobileSheetRoom = mobileSheetRoom
+    ? canManageRoom(mobileSheetRoom)
+    : false;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const media = window.matchMedia(mobileRoomsMedia);
+    const closeSheetOnDesktop = () => {
+      if (!media.matches) {
+        setMobileSheetRoomName(null);
+      }
+    };
+
+    closeSheetOnDesktop();
+    media.addEventListener('change', closeSheetOnDesktop);
+
+    return () => media.removeEventListener('change', closeSheetOnDesktop);
+  }, []);
+
+  const openMobileSheet = (room: Room) => {
+    if (!isMobileRoomsViewport()) {
+      return;
+    }
+
+    setMobileSheetRoomName(room.name);
+  };
+
+  const closeMobileSheet = () => setMobileSheetRoomName(null);
+
+  const handleMobileSheetOpenChange = (open: boolean) => {
+    if (!open) {
+      closeMobileSheet();
+    }
+  };
+
+  const handleMobileLeaveRoom = async (room: Room) => {
+    await handleLeaveRoom(room);
+    closeMobileSheet();
+  };
+
+  const handleMobileDeleteRoom = (room: Room) => {
+    closeMobileSheet();
+    openDeleteModal(room);
+  };
 
   return (
     <main className="rooms-page">
@@ -95,10 +163,29 @@ function RoomsPage() {
             const canManage = canManageRoom(room);
 
             return (
-              <li className="all-room-row" key={room.name}>
+              <li
+                className={classNames('all-room-row', {
+                  active: mobileSheetRoomName === room.name,
+                })}
+                key={room.name}
+                onPointerEnter={(event) => {
+                  if (event.pointerType === 'mouse') {
+                    openMobileSheet(room);
+                  }
+                }}
+              >
                 <a
                   className="room-summary"
                   href={`/chat#${encodeURIComponent(room.name)}`}
+                  onClick={(event) => {
+                    if (!isMobileRoomsViewport()) {
+                      return;
+                    }
+
+                    event.preventDefault();
+                    openMobileSheet(room);
+                  }}
+                  onFocus={() => openMobileSheet(room)}
                 >
                   <span className="room-summary-main">
                     <span>#</span>
@@ -168,6 +255,16 @@ function RoomsPage() {
           <p className="rooms-status">No rooms found.</p>
         ) : null}
       </section>
+
+      <RoomControlSheet
+        key={mobileSheetRoom?.name ?? 'closed'}
+        canManageRoom={canManageMobileSheetRoom}
+        room={mobileSheetRoom}
+        onOpenChange={handleMobileSheetOpenChange}
+        onRenameRoom={renameRoom}
+        onLeaveRoom={handleMobileLeaveRoom}
+        onDeleteRoom={handleMobileDeleteRoom}
+      />
 
       {renameTarget ? (
         <RenameRoomDialog

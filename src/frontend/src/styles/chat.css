@@ -176,6 +176,20 @@
   min-width: 0;
 }
 
+.chat-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-header-title > div {
+  min-width: 0;
+}
+
+.mobile-only {
+  display: none;
+}
+
 .chat-header h2 {
   margin: 0;
   font-size: 20px;
@@ -392,27 +406,24 @@
     display: none;
   }
 
-  .rooms-link-button {
-    min-width: auto;
-    height: auto;
-    padding: 0;
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: inline-flex;
+  }
+
+  .rooms-back-arrow {
     color: var(--color-muted);
-    border: 0;
-    font-size: 18px;
+    font-size: 24px;
     line-height: 1;
+    text-decoration: none;
+    padding-bottom: 2px;
   }
 
-  .rooms-link-button:hover {
-    color: #333;
-  }
-
-  .rooms-link-button::before {
-    content: "...";
-    font-size: 18px;
-  }
-
-  .rooms-link-button {
-    font-size: 0;
+  .rooms-back-arrow:hover {
+    color: var(--color-text-strong);
   }
 
   .message-scroll {

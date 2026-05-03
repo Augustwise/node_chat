@@ -9,15 +9,20 @@ type ChatHeaderProps = {
 function ChatHeader({ activeRoom, onLeaveActiveRoom }: ChatHeaderProps) {
   return (
     <header className="chat-header">
-      <div>
-        <h2 id="room-title">
-          {activeRoom ? `# ${activeRoom.name}` : 'No room selected'}
-        </h2>
-        <p>
-          {activeRoom
-            ? `${activeRoom.members} members - shared room`
-            : 'Create a room to start chatting'}
-        </p>
+      <div className="chat-header-title">
+        <a className="mobile-only rooms-back-arrow" href="/rooms">
+          ‹
+        </a>
+        <div>
+          <h2 id="room-title">
+            {activeRoom ? `# ${activeRoom.name}` : 'No room selected'}
+          </h2>
+          <p>
+            {activeRoom
+              ? `${activeRoom.members} members - shared room`
+              : 'Create a room to start chatting'}
+          </p>
+        </div>
       </div>
       <div className="chat-header-actions">
         {activeRoom?.joined ? (
@@ -30,7 +35,7 @@ function ChatHeader({ activeRoom, onLeaveActiveRoom }: ChatHeaderProps) {
           </button>
         ) : null}
         <a
-          className={classNames('app-button', 'rooms-link-button')}
+          className={classNames('app-button', 'rooms-link-button', 'desktop-only')}
           href="/rooms"
         >
           rooms

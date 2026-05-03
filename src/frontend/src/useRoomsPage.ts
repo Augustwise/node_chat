@@ -130,27 +130,45 @@ function useRoomsPage() {
     }
   }, []);
 
-  const handleRenameRoom = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const renameRoom = async (roomToRename: Room, nextName: string) => {
+    const cleanNextName = nextName.trim();
 
-    const nextName = renameName.trim();
-
-    if (!renameTarget || !nextName || nextName === renameTarget.name) {
-      return;
+    if (!cleanNextName || cleanNextName === roomToRename.name) {
+      return null;
     }
 
     try {
-      const room = await chatSocket.renameRoom(renameTarget.name, nextName);
+      const room = await chatSocket.renameRoom(
+        roomToRename.name,
+        cleanNextName,
+      );
 
       setRooms((currentRooms) =>
         currentRooms.map((currentRoom) =>
-          currentRoom.name === renameTarget.name ? room : currentRoom,
+          currentRoom.name === roomToRename.name ? room : currentRoom,
         ),
       );
-      setRenameDialogOpen(false);
       setError('');
+
+      return room;
     } catch {
       setError('Could not rename that room.');
+
+      return null;
+    }
+  };
+
+  const handleRenameRoom = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!renameTarget) {
+      return;
+    }
+
+    const room = await renameRoom(renameTarget, renameName);
+
+    if (room) {
+      setRenameDialogOpen(false);
     }
   };
 
@@ -221,6 +239,7 @@ function useRoomsPage() {
     isCreatingRoom,
     openDeleteModal,
     openRenameModal,
+    renameRoom,
     renameDialogOpen,
     renameName,
     renameTarget,
