@@ -35,7 +35,11 @@ function ChatHeader({ activeRoom, onLeaveActiveRoom }: ChatHeaderProps) {
           </button>
         ) : null}
         <a
-          className={classNames('app-button', 'rooms-link-button', 'desktop-only')}
+          className={classNames(
+            'app-button',
+            'rooms-link-button',
+            'desktop-only',
+          )}
           href="/rooms"
         >
           rooms

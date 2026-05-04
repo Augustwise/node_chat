@@ -84,9 +84,7 @@ function RoomControlSheet({
                 className="app-button"
                 disabled={!room.joined}
                 title={
-                  room.joined
-                    ? 'Leave room'
-                    : 'Join the room before leaving it'
+                  room.joined ? 'Leave room' : 'Join the room before leaving it'
                 }
                 type="button"
                 onClick={() => onLeaveRoom(room)}

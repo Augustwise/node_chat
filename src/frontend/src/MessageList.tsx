@@ -51,8 +51,7 @@ function MessageList({
   const previousRoomNameRef = useRef<string | null>(null);
   const scrolledRoomNameRef = useRef<string | null>(null);
 
-
-  // useLayoutEffect runs synchronously after all DOM updates 
+  // useLayoutEffect runs synchronously after all DOM updates
   // auto-scrolling to new messages
   useLayoutEffect(() => {
     const roomName = activeRoom?.name ?? null;
